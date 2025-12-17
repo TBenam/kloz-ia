@@ -1,53 +1,48 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-  // 1. Vérifier que la clé est là
+  // Vérification de la clé
   if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: "Clé API manquante dans Vercel" });
+    return res.status(500).json({ error: "Clé API introuvable dans Vercel (Settings > Env Variables)" });
   }
 
-  // 2. Récupérer les données envoyées par ton site
   const { message, history, context } = req.body;
 
   try {
-    // 3. Connecter Gemini
+    // Connexion à Gemini (Version Flash = plus rapide)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // 4. Préparer la discussion avec TES instructions
-    // On transforme l'historique pour qu'il soit compréhensible par Gemini
+    // Préparation de la discussion
+    // On convertit l'historique au format Google
     const chatHistory = (history || []).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: msg.parts
     }));
 
-    // On démarre le chat
     const chat = model.startChat({
       history: chatHistory,
-      generationConfig: {
-        maxOutputTokens: 500,
-      },
     });
 
-    // 5. La technique secrète : On injecte le contexte DANS le message si c'est le début
-    // Ou on l'ajoute comme instruction système "cachée"
+    // INJECTION DU CONTEXTE (Technique du "System Prompt" simulé)
+    // On force l'IA à lire le contexte juste avant ta question
     let finalPrompt = message;
-    
-    // Si c'est un contexte de vente, on le rappelle pour être sûr qu'il obéisse
     if (context) {
-      finalPrompt = `CONTEXTE IMPORTANT (Tu dois l'incarner) : ${context}\n\nMESSAGE DU CLIENT : ${message}`;
+      finalPrompt = `[INSTRUCTION IMPORTANTE DU SYSTÈME]\nTu es un assistant virtuel. Voici tes instructions :\n${context}\n\n[MESSAGE UTILISATEUR]\n${message}`;
     }
 
-    // 6. Envoi
+    // Envoi
     const result = await chat.sendMessage(finalPrompt);
     const response = await result.response;
     const text = response.text();
 
-    // 7. Réponse au site
     return res.status(200).json({ text: text });
 
   } catch (error) {
-    console.error("Erreur Gemini:", error);
-    return res.status(500).json({ error: "Le cerveau de l'IA a surchauffé." });
+    console.error("ERREUR GEMINI:", error);
+    // On renvoie la VRAIE erreur pour le débogage
+    return res.status(500).json({ 
+      error: `Erreur technique : ${error.message || error.toString()}` 
+    });
   }
 }
