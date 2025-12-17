@@ -70,15 +70,17 @@ export default function App() {
     if (!inputText.trim() || isTyping) return;
     const userText = inputText.trim();
     
-    // 1. Affiche message utilisateur
+    // 1. Affiche le message de l'utilisateur tout de suite
     setMessages(prev => [...prev, { id: Date.now(), sender: 'user', text: userText, time: 'Now' }]);
     setInputText('');
     setIsTyping(true);
     setError(null);
 
     try {
-      // 2. Prépare l'historique
-      const history = messages.map(m => ({
+      // 2. PRÉPARATION DE L'HISTORIQUE (C'est ici que ça plantait !)
+      // On enlève le tout premier message (le "Bienvenue" du robot)
+      // pour que Google ne voie que la conversation réelle commençant par TOI.
+      const cleanHistory = messages.slice(1).map(m => ({
         role: m.sender === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
       }));
@@ -89,7 +91,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
-          history: history,
+          history: cleanHistory, // On envoie l'historique nettoyé
           context: config.context
         })
       });
@@ -104,7 +106,6 @@ export default function App() {
       setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'bot', text: data.text, time: 'Now' }]);
     } catch (e) {
       console.error(e);
-      // Affiche la VRAIE erreur à l'écran
       setError(e.message);
     } finally {
       setIsTyping(false);
