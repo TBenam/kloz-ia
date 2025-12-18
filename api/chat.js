@@ -1,10 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Récupère ta clé secrète (assure-toi qu'elle est bien dans ton fichier .env)
+// Initialisation (récupère ta clé dans les variables d'environnement)
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
-  // Cette ligne permet de gérer les problèmes de sécurité (CORS)
+  // --- Gestion des permissions (CORS) ---
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -14,21 +14,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, history } = req.body; // On récupère le message envoyé par le site
+    const { message } = req.body;
 
-    // Configuration du modèle (Flash 2.0 est plus récent et rapide)
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // --- CORRECTION : Utilisation de Gemini 2.5 Flash ---
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash", 
+      contents: message, 
+    });
 
-    // Envoi du message à Gemini
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    const text = response.text();
+    // Récupération de la réponse
+    const text = response.text; 
 
-    // On renvoie la réponse au site web
     res.status(200).json({ reply: text });
 
   } catch (error) {
     console.error("Erreur Gemini:", error);
+    // On affiche l'erreur exacte dans la console de Vercel pour t'aider si ça replante
     res.status(500).json({ error: "Erreur lors de la génération de la réponse" });
   }
 }
