@@ -12,6 +12,7 @@
     "@google/genai": "^1.34.0",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.17",
+    "firebase": "^12.7.0",
     "lucide-react": "^0.300.0",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
