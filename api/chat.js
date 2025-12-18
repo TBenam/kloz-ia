@@ -1,9 +1,12 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Attention : Assure-toi d'utiliser la bonne classe d'import selon ta version. 
+// Pour la version standard : "@google/generative-ai"
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export default async function handler(req, res) {
-  // Headers habituels
+  // Headers CORS pour autoriser le frontend
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -13,32 +16,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    // 1. On récupère TOUT ce que le frontend envoie
+    const { message, history, context } = req.body;
 
-    // On garde le modèle de ton guide
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
-      contents: message,
+    // 2. On configure le modèle avec tes instructions (le System Prompt)
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash", // Utilise 1.5-flash qui est plus stable/rapide
+      systemInstruction: context // C'est ICI que ton prompt "Vendeur de sneakers" s'applique
     });
 
-    // --- LE DEBUG ---
-    // On regarde ce qu'il y a VRAIMENT dans la réponse
-    let text = response.text;
+    // 3. On démarre le chat avec l'historique
+    const chat = model.startChat({
+      history: history || [], // On injecte l'historique de la conversation
+    });
 
-    // Si le texte est vide ou inexistant, on affiche TOUT ce qu'on a reçu (en JSON)
-    // C'est ça qui va remplir ta bulle vide
-    if (!text) {
-      console.log("Texte vide. Affichage brut.");
-      text = "DEBUG (Réponse brute) : " + JSON.stringify(response, null, 2);
-    }
+    // 4. On envoie le nouveau message
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    const text = response.text(); // La bonne façon de récupérer le texte
 
-    res.status(200).json({ reply: text });
+    // 5. IMPORTANT : On renvoie la clé "text" pour matcher avec App.jsx
+    res.status(200).json({ text: text });
 
   } catch (error) {
-    console.error("Erreur Catch:", error);
-    // Si ça plante ici, on affiche l'erreur exacte
-    res.status(200).json({ 
-      reply: `ERREUR CRITIQUE (Catch) : ${error.message}` 
+    console.error("Erreur Backend:", error);
+    res.status(500).json({ 
+      text: `Erreur : ${error.message}` // On renvoie aussi "text" ici pour l'afficher dans la bulle rouge
     });
   }
 }
