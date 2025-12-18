@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
-  // Headers obligatoires
+  // Headers habituels
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -15,28 +15,30 @@ export default async function handler(req, res) {
   try {
     const { message } = req.body;
 
-    // CORRECTION : On utilise le modèle 2.0 Experimental (le vrai modèle "futuriste")
-    // Le "2.5" de ton guide est soit une erreur, soit pas encore activé sur ton compte.
+    // On garde le modèle de ton guide
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp", 
+      model: "gemini-2.5-flash", 
       contents: message,
     });
 
-    // Avec le SDK 2025, on récupère le texte comme ça
+    // --- LE DEBUG ---
+    // On regarde ce qu'il y a VRAIMENT dans la réponse
     let text = response.text;
 
-    // Filet de sécurité : Si c'est vide, on le dit clairement
+    // Si le texte est vide ou inexistant, on affiche TOUT ce qu'on a reçu (en JSON)
+    // C'est ça qui va remplir ta bulle vide
     if (!text) {
-      text = "Le modèle a répondu mais le texte est vide (Sécurité ou format inattendu).";
+      console.log("Texte vide. Affichage brut.");
+      text = "DEBUG (Réponse brute) : " + JSON.stringify(response, null, 2);
     }
 
     res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("Erreur Gemini:", error);
-    // Affichage de l'erreur réelle dans la bulle pour debug
+    console.error("Erreur Catch:", error);
+    // Si ça plante ici, on affiche l'erreur exacte
     res.status(200).json({ 
-      reply: `ERREUR : ${error.message}` 
+      reply: `ERREUR CRITIQUE (Catch) : ${error.message}` 
     });
   }
 }
