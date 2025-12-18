@@ -24,16 +24,14 @@ export default async function handler(req, res) {
     });
 
     // Dans le nouveau SDK, .text est une propriété (pas une fonction)
+    // C'est ici que ça change par rapport aux vieilles versions
     const text = response.text;
 
     res.status(200).json({ reply: text });
 
   } catch (error) {
     console.error("Erreur Gemini:", error);
-    // On affiche l'erreur complète pour comprendre si le modèle 2.5 coince
-    res.status(500).json({ 
-      error: error.message,
-      details: "Le guide demande gemini-2.5-flash via @google/genai" 
-    });
+    // On renvoie l'erreur brute pour voir si Google bloque le modèle 2.5
+    res.status(500).json({ error: error.message });
   }
 }
