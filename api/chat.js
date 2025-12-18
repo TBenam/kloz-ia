@@ -1,6 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-// On utilise bien la librairie installée dans ton package.json
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
@@ -25,33 +24,43 @@ export default async function handler(req, res) {
       }));
     }
 
-    // 2. Ajout du message utilisateur actuel
+    // 2. Ajout du message actuel
     contents.push({
       role: 'user',
       parts: [{ text: message }]
     });
 
-    // 3. Appel API avec GEMINI 2.5
+    // 3. Appel API (Gemini 2.5 Flash est bien dispo en déc. 2025)
     const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // ✅ Version corrigée pour 2025
+      model: "gemini-2.5-flash", 
       config: {
-        // Le contexte (Vendeur de sneakers) est injecté ici
         systemInstruction: { parts: [{ text: context || "Tu es un assistant utile." }] }
       },
       contents: contents
     });
 
-    // 4. Extraction sécurisée de la réponse
-    // Avec le SDK @google/genai récent, la structure est parfois imbriquée
-    const responseText = result.response.candidates[0].content.parts[0].text;
+    // --- CORRECTION MAJEURE ICI ---
+    // Avec @google/genai, "result" contient DIRECTEMENT "candidates" ou "text"
+    // On vérifie d'abord si on a du texte directement accessible
+    let responseText = "";
+    
+    if (result.text) {
+        // Le SDK récent offre souvent cet accesseur direct
+        responseText = result.text;
+    } else if (result.candidates && result.candidates.length > 0) {
+        // Sinon on va chercher à la main dans la structure
+        responseText = result.candidates[0].content.parts[0].text;
+    } else {
+        responseText = "Aucune réponse générée.";
+    }
 
-    // 5. Envoi au frontend avec la clé "text" (Correction de la bulle vide)
+    // 5. Envoi au frontend
     res.status(200).json({ text: responseText });
 
   } catch (error) {
-    console.error("ERREUR CRITIQUE:", error);
+    console.error("ERREUR:", error);
     res.status(200).json({ 
-      text: `Erreur technique (${error.message}). Vérifie ta clé API ou tes quotas.` 
+      text: `Erreur technique : ${error.message}` 
     });
   }
 }
