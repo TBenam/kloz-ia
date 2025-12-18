@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Force le chat à être au-dessus de tout sur mobile */
+.fixed {
+  z-index: 9999 !important;
+}
