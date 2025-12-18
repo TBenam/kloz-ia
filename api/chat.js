@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
+// On suit ton guide : Initialisation du client 2025
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
-  // --- Headers pour autoriser ton site à parler au serveur ---
+  // Headers obligatoires pour que le site fonctionne
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -15,38 +16,24 @@ export default async function handler(req, res) {
   try {
     const { message } = req.body;
 
-    // 1. On appelle le modèle 1.5 Flash (le plus fiable)
+    // APPLICATION STRICTE DU GUIDE
+    // Utilisation du modèle 2.5-flash qui correspond au SDK v1beta
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash", 
       contents: message,
     });
 
-    // 2. On essaie de récupérer le texte de plusieurs façons (Filet de sécurité)
-    let text = response.text; // Méthode directe (nouveau SDK)
+    // Dans le nouveau SDK, .text est une propriété (pas une fonction)
+    const text = response.text;
 
-    // Si la méthode directe est vide, on cherche dans les candidats (ancienne méthode)
-    if (!text && response.candidates && response.candidates.length > 0) {
-      const parts = response.candidates[0].content.parts;
-      if (parts && parts.length > 0) {
-        text = parts[0].text;
-      }
-    }
-
-    // 3. Si toujours rien, c'est peut-être une sécurité ou un bug
-    if (!text) {
-      console.log("Réponse vide reçue de Gemini :", JSON.stringify(response, null, 2));
-      text = "Désolé, je n'ai pas pu générer de réponse (Réponse vide ou bloquée).";
-    }
-
-    // 4. On renvoie le texte trouvé
     res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("ERREUR CRITIQUE:", error);
-    // On renvoie l'erreur précise pour que tu puisses la lire dans la bulle
+    console.error("Erreur Gemini:", error);
+    // On affiche l'erreur complète pour comprendre si le modèle 2.5 coince
     res.status(500).json({ 
-      error: error.message || "Erreur inconnue",
-      reply: "Erreur technique : " + (error.message || "Voir logs")
+      error: error.message,
+      details: "Le guide demande gemini-2.5-flash via @google/genai" 
     });
   }
 }
