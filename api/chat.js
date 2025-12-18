@@ -1,12 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
-// Attention : Assure-toi d'utiliser la bonne classe d'import selon ta version. 
-// Pour la version standard : "@google/generative-ai"
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// On utilise le SDK que tu as déjà installé
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req, res) {
-  // Headers CORS pour autoriser le frontend
+  // --- HEADERS CORS (Indispensable pour que le frontend puisse parler au backend) ---
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -16,32 +14,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. On récupère TOUT ce que le frontend envoie
     const { message, history, context } = req.body;
 
-    // 2. On configure le modèle avec tes instructions (le System Prompt)
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash", // Utilise 1.5-flash qui est plus stable/rapide
-      systemInstruction: context // C'est ICI que ton prompt "Vendeur de sneakers" s'applique
+    // 1. Préparation de l'historique pour ce SDK spécifique
+    // On s'assure que l'historique est propre
+    let contents = [];
+    if (history && Array.isArray(history)) {
+      contents = history.map(msg => ({
+        role: msg.role,
+        parts: msg.parts
+      }));
+    }
+
+    // 2. On ajoute le message actuel de l'utilisateur
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
     });
 
-    // 3. On démarre le chat avec l'historique
-    const chat = model.startChat({
-      history: history || [], // On injecte l'historique de la conversation
+    // 3. Appel API avec le format "@google/genai"
+    const result = await ai.models.generateContent({
+      model: "gemini-1.5-flash", 
+      config: {
+        // C'est ici qu'on injecte ton contexte de vendeur
+        systemInstruction: { parts: [{ text: context || "Tu es un assistant utile." }] }
+      },
+      contents: contents
     });
 
-    // 4. On envoie le nouveau message
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const text = response.text(); // La bonne façon de récupérer le texte
+    // 4. Extraction de la réponse (Méthode sécurisée)
+    // Ce SDK renvoie parfois la réponse imbriquée différemment
+    const responseText = result.response.candidates[0].content.parts[0].text;
 
-    // 5. IMPORTANT : On renvoie la clé "text" pour matcher avec App.jsx
-    res.status(200).json({ text: text });
+    // 5. On renvoie la clé "text" que le Frontend attend
+    res.status(200).json({ text: responseText });
 
   } catch (error) {
-    console.error("Erreur Backend:", error);
-    res.status(500).json({ 
-      text: `Erreur : ${error.message}` // On renvoie aussi "text" ici pour l'afficher dans la bulle rouge
+    console.error("ERREUR BACKEND :", error);
+    // En cas d'erreur, on renvoie le message d'erreur dans la bulle
+    res.status(200).json({ 
+      text: `Désolé, une erreur technique est survenue : ${error.message}` 
     });
   }
 }
